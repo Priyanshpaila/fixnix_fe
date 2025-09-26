@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "129673915555",
+    "project_id": "ticketapp-56785",
+    "storage_bucket": "ticketapp-56785.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129673915555:android:9a14c45cb410e4ce1ca316",
+        "android_client_info": {
+          "package_name": "com.example.fixnix_frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtGG2cOSXDpKZMVpc17lyxZyd0Fsmiir4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
