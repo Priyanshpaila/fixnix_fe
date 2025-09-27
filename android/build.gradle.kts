@@ -1,3 +1,8 @@
+
+
+import org.gradle.api.tasks.Delete
+import org.gradle.api.file.Directory
+
 allprojects {
     repositories {
         google()
@@ -5,6 +10,7 @@ allprojects {
     }
 }
 
+// (Optional) Put all build outputs under a single ../../build directory
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 
@@ -21,9 +27,6 @@ tasks.register<Delete>("clean") {
 }
 
 plugins {
-  // ...
-
-  // Add the dependency for the Google services Gradle plugin
-  id("com.google.gms.google-services") version "4.4.3" apply false
-
+    // Keep plugin versions here; apply in modules as needed
+    id("com.google.gms.google-services") version "4.3.15" apply false
 }

@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, unused_import
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,7 +46,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           return 'Please check your input.';
         }
       }
-      // Network / timeout friendly messages
       if (err.type == DioExceptionType.connectionTimeout ||
           err.type == DioExceptionType.receiveTimeout) {
         return 'Network timeout. Please try again.';
@@ -79,152 +79,426 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final media = MediaQuery.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Gradient background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  scheme.primary.withOpacity(.12),
-                  scheme.secondary.withOpacity(.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+    // Common, elevated text field style (keeps your validation/logic)
+    InputDecoration _decor(String label, IconData icon, {Widget? suffix}) {
+      return InputDecoration(
+        labelText: label,
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant.withOpacity(.7)),
+        filled: true,
+        fillColor: (isDark ? scheme.surface : Colors.white).withOpacity(.75),
+        prefixIcon: Container(
+          margin: const EdgeInsets.only(left: 10, right: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: scheme.primary.withOpacity(.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 18, color: scheme.primary),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 54),
+        suffixIcon: suffix,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.outlineVariant.withOpacity(.4)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.primary, width: 1.6),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.error),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      );
+    }
+
+    // Gradient CTA with strong shadow (button logic unchanged)
+    Widget _gradientCTA({
+      Key? key,
+      required Widget child,
+      required VoidCallback? onTap,
+    }) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [scheme.primary, scheme.primaryContainer],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.primary.withOpacity(.35),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: scheme.onPrimary,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
             ),
           ),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                padding: const EdgeInsets.all(Fx.xl),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.95),
-                  borderRadius: BorderRadius.circular(Fx.rLg),
-                  boxShadow: Fx.cardShadow(Colors.black),
-                  border: Border.all(color: scheme.outlineVariant),
+          child: child,
+        ),
+      );
+    }
+
+    // Glass card with blur and deep shadows
+    Widget _glassCard({required Widget child}) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(Fx.rLg),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.all(Fx.xl),
+            decoration: BoxDecoration(
+              color: (isDark ? scheme.surface : Colors.white).withOpacity(.82),
+              borderRadius: BorderRadius.circular(Fx.rLg),
+              border: Border.all(color: scheme.outlineVariant.withOpacity(.6)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(.10),
+                  blurRadius: 30,
+                  offset: const Offset(0, 18),
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.support_agent_rounded,
-                        size: 48,
-                        color: scheme.primary,
-                      ),
-                      const SizedBox(height: Fx.l),
-                      Text(
-                        'Welcome to FIXNIX',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: Fx.l),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      );
+    }
 
-                      // Email
-                      TextFormField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [
-                          AutofillHints.username,
-                          AutofillHints.email,
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: Icon(Icons.alternate_email_rounded),
-                        ),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Email is required';
-                          final ok = RegExp(
-                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                          ).hasMatch(s);
-                          if (!ok) return 'Enter a valid email';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: Fx.m),
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 980;
 
-                      // Password (hard cap 8 chars)
-                      TextFormField(
-                        controller: _pass,
-                        obscureText: _obscure,
-                        maxLength: 8, // hard cap
-                        inputFormatters: [LengthLimitingTextInputFormatter(8)],
-                        autofillHints: const [AutofillHints.password],
-                        decoration: InputDecoration(
-                          labelText: 'Password (8 chars)',
-                          counterText: '', // hide counter
-                          prefixIcon: const Icon(Icons.lock_outline_rounded),
-                          suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                            icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_rounded
-                                  : Icons.visibility_off_rounded,
+          // Background: soft diagonal gradient + radial blobs
+          final background = Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.primary.withOpacity(.10),
+                      scheme.secondary.withOpacity(.10),
+                      scheme.tertiary.withOpacity(.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+              // light blobs
+              Positioned(
+                top: -120,
+                right: -80,
+                child: _blob(220, scheme.primary.withOpacity(.20)),
+              ),
+              Positioned(
+                bottom: -140,
+                left: -100,
+                child: _blob(280, scheme.secondary.withOpacity(.18)),
+              ),
+            ],
+          );
+
+          // Brand hero (only on wide screens)
+          Widget? hero;
+          if (isWide) {
+            hero = Padding(
+              padding: const EdgeInsets.all(Fx.xl),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _floatingIcon(
+                    icon: Icons.support_agent_rounded,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(height: Fx.l),
+                  Text(
+                    'FIXNIX Helpdesk',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: Fx.m),
+                  Text(
+                    'Real-time assignment alerts and a lightning-fast agent workflow.',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: scheme.onSurface.withOpacity(.72),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Login form (scroll/keyboard safe)
+          final form = SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  Fx.l,
+                  Fx.l,
+                  Fx.l,
+                  Fx.l + media.viewInsets.bottom,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: _glassCard(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isWide) ...[
+                            _floatingIcon(
+                              icon: Icons.support_agent_rounded,
+                              color: scheme.primary,
+                              size: 56,
+                            ),
+                            const SizedBox(height: Fx.l),
+                            Text(
+                              'Welcome to FIXNIX',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: Fx.l),
+                          ],
+
+                          // Email
+                          Material(
+                            elevation: 6,
+                            shadowColor: Colors.black.withOpacity(.08),
+                            borderRadius: BorderRadius.circular(16),
+                            child: TextFormField(
+                              controller: _email,
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [
+                                AutofillHints.username,
+                                AutofillHints.email,
+                              ],
+                              textInputAction: TextInputAction.next,
+                              decoration: _decor(
+                                'Email',
+                                Icons.attribution_rounded,
+                              ).copyWith(hintText: 'you@company.com'),
+                              validator: (v) {
+                                final s = (v ?? '').trim();
+                                if (s.isEmpty) return 'Email is required';
+                                final ok = RegExp(
+                                  r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                ).hasMatch(s);
+                                if (!ok) return 'Enter a valid email';
+                                return null;
+                              },
                             ),
                           ),
-                        ),
-                        validator: (v) {
-                          final s = v ?? '';
-                          if (s.isEmpty) return 'Password is required';
-                          if (s.length != 8)
-                            return 'Password must be exactly 8 characters';
-                          return null;
-                        },
-                        onFieldSubmitted: (_) => _onLogin(),
-                      ),
-                      const SizedBox(height: Fx.l),
+                          const SizedBox(height: Fx.m),
 
-                      // CTA
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          icon: _loading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                          // Password (exact 8 chars)
+                          Material(
+                            elevation: 6,
+                            shadowColor: Colors.black.withOpacity(.08),
+                            borderRadius: BorderRadius.circular(16),
+                            child: TextFormField(
+                              controller: _pass,
+                              obscureText: _obscure,
+                              maxLength: 8,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(8),
+                              ],
+                              autofillHints: const [AutofillHints.password],
+                              textInputAction: TextInputAction.done,
+                              decoration: _decor(
+                                'Password (8 chars)',
+                                Icons.lock_rounded,
+                                suffix: IconButton(
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                  tooltip: _obscure
+                                      ? 'Show password'
+                                      : 'Hide password',
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_rounded
+                                        : Icons.visibility_off_rounded,
                                   ),
-                                )
-                              : const Icon(Icons.login),
-                          label: Text(_loading ? 'Signing in…' : 'Sign in'),
-                          onPressed: _loading ? null : _onLogin,
-                        ),
-                      ),
-
-                      // Subtle helper row
-                      const SizedBox(height: Fx.m),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 16,
-                            color: scheme.outline,
+                                ),
+                              ).copyWith(counterText: ''),
+                              validator: (v) {
+                                final s = v ?? '';
+                                if (s.isEmpty) return 'Password is required';
+                                if (s.length != 8) {
+                                  return 'Password must be exactly 8 characters';
+                                }
+                                return null;
+                              },
+                              onFieldSubmitted: (_) => _onLogin(),
+                            ),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Use your FIXNIX agent credentials',
-                            style: TextStyle(color: scheme.outline),
+                          const SizedBox(height: Fx.l),
+
+                          // CTA
+                          SizedBox(
+                            width: double.infinity,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: _loading
+                                  ? _gradientCTA(
+                                      key: const ValueKey('loading'),
+                                      onTap: null,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: const [
+                                          SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('Signing in…'),
+                                        ],
+                                      ),
+                                    )
+                                  : _gradientCTA(
+                                      key: const ValueKey('idle'),
+                                      onTap: _onLogin,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: const [
+                                          Icon(Icons.login_rounded),
+                                          SizedBox(width: 8),
+                                          Text('Sign in'),
+                                        ],
+                                      ),
+                                    ),
+                            ),
+                          ),
+
+                          const SizedBox(height: Fx.m),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 16,
+                                color: scheme.outline,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Use your FIXNIX agent credentials',
+                                style: TextStyle(
+                                  color: scheme.outline,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
+          );
+
+          // Layout
+          return Stack(
+            children: [
+              background,
+              if (isWide)
+                Row(
+                  children: [
+                    Expanded(flex: 5, child: hero!),
+                    Expanded(flex: 4, child: form),
+                  ],
+                )
+              else
+                form,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // Helper: soft radial blob
+  Widget _blob(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color,
+            blurRadius: size / 1.8,
+            spreadRadius: size / 6,
           ),
         ],
+      ),
+    );
+  }
+
+  // Helper: floating circular icon with inner shadow feel
+  Widget _floatingIcon({
+    required IconData icon,
+    required Color color,
+    double size = 72,
+  }) {
+    return Container(
+      width: size + 20,
+      height: size + 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [color.withOpacity(.18), color.withOpacity(.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.10),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: color.withOpacity(.18),
+            blurRadius: 40,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Icon(icon, color: color, size: size),
       ),
     );
   }

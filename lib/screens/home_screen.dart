@@ -101,6 +101,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return AppShell(
+      fab: FloatingActionButton.extended(
+        icon: const Icon(Icons.add),
+        label: const Text('New Ticket'),
+        onPressed: () async {
+          final created = await context.push<bool>('/ticket/new');
+          if (created == true) _reload(); // refresh list if created
+        },
+      ),
       child: CustomScrollView(
         slivers: [
           SliverAppBar(

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
-  const AppShell({super.key, required this.child});
+  final Widget? fab;
+  const AppShell({super.key, required this.child, this.fab});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -15,6 +16,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: widget.child,
+      floatingActionButton: widget.fab,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) {

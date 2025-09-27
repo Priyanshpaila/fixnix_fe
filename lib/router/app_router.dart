@@ -1,3 +1,4 @@
+import 'package:fixnix_app/screens/create_ticket_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +17,13 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
       GoRoute(
-        path: '/ticket/:id',
-        builder: (_, s) => TicketDetailScreen(ticketId: s.pathParameters['id']!),
+        path: '/ticket/new',
+        builder: (_, __) => const CreateTicketScreen(),
+      ),
+      GoRoute(
+        path: '/ticket/:id([0-9a-fA-F]{24})',
+        builder: (_, s) =>
+            TicketDetailScreen(ticketId: s.pathParameters['id']!),
       ),
     ],
     redirect: (ctx, state) {
