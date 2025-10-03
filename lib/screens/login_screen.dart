@@ -1,16 +1,16 @@
-// ignore_for_file: deprecated_member_use, unused_import
+// ignore_for_file: deprecated_member_use
 
 import 'dart:ui';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../features/auth/auth_providers.dart';
-import '../features/auth/auth_repository.dart';
 import '../push/notifications.dart';
 import '../router/app_router.dart';
 import '../ui/tokens.dart';
-import 'package:dio/dio.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -25,7 +25,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   bool _obscure = true;
 
-  void _showToast(BuildContext ctx, String msg) {
+  void _toast(BuildContext ctx, String msg) {
     ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
     ScaffoldMessenger.of(ctx).showSnackBar(
       SnackBar(
@@ -70,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(messagingInitProvider.future);
       if (mounted) navigatorKey.currentContext?.go('/');
     } catch (e) {
-      if (mounted) _showToast(ctx, _mapLoginError(e));
+      if (mounted) _toast(ctx, _mapLoginError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -78,43 +78,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final media = MediaQuery.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Common, elevated text field style (keeps your validation/logic)
     InputDecoration _decor(String label, IconData icon, {Widget? suffix}) {
       return InputDecoration(
         labelText: label,
-        hintStyle: TextStyle(color: scheme.onSurfaceVariant.withOpacity(.7)),
+        hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(.7)),
         filled: true,
-        fillColor: (isDark ? scheme.surface : Colors.white).withOpacity(.75),
+        fillColor: (isDark ? cs.surface : Colors.white).withOpacity(.78),
         prefixIcon: Container(
           margin: const EdgeInsets.only(left: 10, right: 8),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: scheme.primary.withOpacity(.12),
+            color: cs.primary.withOpacity(.12),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 18, color: scheme.primary),
+          child: Icon(icon, size: 18, color: cs.primary),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 54),
         suffixIcon: suffix,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outlineVariant.withOpacity(.4)),
+          borderSide: BorderSide(color: cs.outlineVariant.withOpacity(.45)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.primary, width: 1.6),
+          borderSide: BorderSide(color: cs.primary, width: 1.6),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.error),
+          borderSide: BorderSide(color: cs.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.error),
+          borderSide: BorderSide(color: cs.error),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -123,45 +122,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
     }
 
-    // Gradient CTA with strong shadow (button logic unchanged)
-    Widget _gradientCTA({
-      Key? key,
-      required Widget child,
-      required VoidCallback? onTap,
-    }) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [scheme.primary, scheme.primaryContainer],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: scheme.primary.withOpacity(.35),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: ElevatedButton(
-          onPressed: onTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            foregroundColor: scheme.onPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-          ),
-          child: child,
-        ),
-      );
-    }
-
-    // Glass card with blur and deep shadows
     Widget _glassCard({required Widget child}) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(Fx.rLg),
@@ -170,9 +130,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Container(
             padding: const EdgeInsets.all(Fx.xl),
             decoration: BoxDecoration(
-              color: (isDark ? scheme.surface : Colors.white).withOpacity(.82),
+              color: (isDark ? cs.surface : Colors.white).withOpacity(.86),
               borderRadius: BorderRadius.circular(Fx.rLg),
-              border: Border.all(color: scheme.outlineVariant.withOpacity(.6)),
+              border: Border.all(color: cs.outlineVariant.withOpacity(.6)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(.10),
@@ -190,72 +150,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 980;
+          // always single centered card, but with responsive max width
+          final double maxFormWidth = constraints.maxWidth < 520
+              ? 440
+              : (constraints.maxWidth < 900 ? 520 : 560);
 
-          // Background: soft diagonal gradient + radial blobs
           final background = Stack(
             children: [
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      scheme.primary.withOpacity(.10),
-                      scheme.secondary.withOpacity(.10),
-                      scheme.tertiary.withOpacity(.08),
+                      cs.primary.withOpacity(.10),
+                      cs.secondary.withOpacity(.10),
+                      cs.tertiary.withOpacity(.08),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                 ),
               ),
-              // light blobs
+              // soft blobs
               Positioned(
-                top: -120,
-                right: -80,
-                child: _blob(220, scheme.primary.withOpacity(.20)),
+                top: -140,
+                right: -100,
+                child: _blob(260, cs.primary.withOpacity(.18)),
               ),
               Positioned(
-                bottom: -140,
-                left: -100,
-                child: _blob(280, scheme.secondary.withOpacity(.18)),
+                bottom: -160,
+                left: -110,
+                child: _blob(320, cs.secondary.withOpacity(.16)),
               ),
             ],
           );
 
-          // Brand hero (only on wide screens)
-          Widget? hero;
-          if (isWide) {
-            hero = Padding(
-              padding: const EdgeInsets.all(Fx.xl),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _floatingIcon(
-                    icon: Icons.support_agent_rounded,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(height: Fx.l),
-                  Text(
-                    'FIXNIX Helpdesk',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: Fx.m),
-                  Text(
-                    'Real-time assignment alerts and a lightning-fast agent workflow.',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: scheme.onSurface.withOpacity(.72),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Login form (scroll/keyboard safe)
           final form = SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -266,27 +194,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Fx.l + media.viewInsets.bottom,
                 ),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 460),
+                  constraints: BoxConstraints(maxWidth: maxFormWidth),
                   child: _glassCard(
                     child: Form(
                       key: _formKey,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (!isWide) ...[
-                            _floatingIcon(
-                              icon: Icons.support_agent_rounded,
-                              color: scheme.primary,
-                              size: 56,
+                          // YOUR PNG LOGO
+                          // Put logo at: assets/logo.png and declare in pubspec.yaml
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Fx.l),
+                            child: Image.asset(
+                              'assets/logo.png',
+                              height: 50,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
                             ),
-                            const SizedBox(height: Fx.l),
-                            Text(
-                              'Welcome to FIXNIX',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: Fx.l),
-                          ],
+                          ),
+
+                          Text(
+                            'Welcome',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: Fx.l),
 
                           // Email
                           Material(
@@ -303,7 +236,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               textInputAction: TextInputAction.next,
                               decoration: _decor(
                                 'Email',
-                                Icons.attribution_rounded,
+                                Icons.alternate_email_rounded,
                               ).copyWith(hintText: 'you@company.com'),
                               validator: (v) {
                                 final s = (v ?? '').trim();
@@ -351,54 +284,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               validator: (v) {
                                 final s = v ?? '';
                                 if (s.isEmpty) return 'Password is required';
-                                if (s.length != 8) {
+                                if (s.length != 8)
                                   return 'Password must be exactly 8 characters';
-                                }
                                 return null;
                               },
                               onFieldSubmitted: (_) => _onLogin(),
                             ),
                           ),
+
                           const SizedBox(height: Fx.l),
 
                           // CTA
                           SizedBox(
                             width: double.infinity,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: _loading
-                                  ? _gradientCTA(
-                                      key: const ValueKey('loading'),
-                                      onTap: null,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: const [
-                                          SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          ),
-                                          SizedBox(width: 10),
-                                          Text('Signing in…'),
-                                        ],
-                                      ),
-                                    )
-                                  : _gradientCTA(
-                                      key: const ValueKey('idle'),
-                                      onTap: _onLogin,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: const [
-                                          Icon(Icons.login_rounded),
-                                          SizedBox(width: 8),
-                                          Text('Sign in'),
-                                        ],
-                                      ),
-                                    ),
+                            child: _PrimaryCTA(
+                              loading: _loading,
+                              label: 'Sign in',
+                              icon: Icons.login_rounded,
+                              onPressed: _onLogin,
                             ),
                           ),
 
@@ -409,13 +312,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Icon(
                                 Icons.info_outline_rounded,
                                 size: 16,
-                                color: scheme.outline,
+                                color: cs.outline,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Use your FIXNIX agent credentials',
                                 style: TextStyle(
-                                  color: scheme.outline,
+                                  color: cs.outline,
                                   height: 1.2,
                                 ),
                               ),
@@ -430,27 +333,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           );
 
-          // Layout
-          return Stack(
-            children: [
-              background,
-              if (isWide)
-                Row(
-                  children: [
-                    Expanded(flex: 5, child: hero!),
-                    Expanded(flex: 4, child: form),
-                  ],
-                )
-              else
-                form,
-            ],
-          );
+          return Stack(children: [background, form]);
         },
       ),
     );
   }
 
-  // Helper: soft radial blob
+  // soft radial blob
   Widget _blob(double size, Color color) {
     return Container(
       width: size,
@@ -467,38 +356,105 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
+}
 
-  // Helper: floating circular icon with inner shadow feel
-  Widget _floatingIcon({
-    required IconData icon,
-    required Color color,
-    double size = 72,
-  }) {
-    return Container(
-      width: size + 20,
-      height: size + 20,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [color.withOpacity(.18), color.withOpacity(.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+class _PrimaryCTA extends StatelessWidget {
+  final bool loading;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _PrimaryCTA({
+    required this.loading,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // We wrap the button in a container to add a subtle drop shadow,
+    // while keeping proper ink/ripple from the ElevatedButton.
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        key: ValueKey<bool>(loading),
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: cs.primary.withOpacity(.28),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
+            ),
+          ],
+          borderRadius: BorderRadius.circular(28),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.10),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+        child: ElevatedButton(
+          onPressed: loading ? null : onPressed,
+          style:
+              ElevatedButton.styleFrom(
+                elevation: 0, // shadow handled by parent Container
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                // nice hover/press feedback on desktop/web
+                shadowColor: cs.primary,
+                minimumSize: const Size.fromHeight(52),
+              ).copyWith(
+                // Subtle pressed + hover effects
+                backgroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.disabled))
+                    return cs.primary.withOpacity(.72);
+                  if (states.contains(MaterialState.pressed))
+                    return cs.primary.withOpacity(.90);
+                  if (states.contains(MaterialState.hovered))
+                    return cs.primary.withOpacity(.96);
+                  return cs.primary;
+                }),
+              ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: loading
+                ? Row(
+                    key: const ValueKey('loading'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text('Signing in…'),
+                    ],
+                  )
+                : Row(
+                    key: const ValueKey('idle'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
           ),
-          BoxShadow(
-            color: color.withOpacity(.18),
-            blurRadius: 40,
-            spreadRadius: 4,
-          ),
-        ],
-      ),
-      child: Center(
-        child: Icon(icon, color: color, size: size),
+        ),
       ),
     );
   }
