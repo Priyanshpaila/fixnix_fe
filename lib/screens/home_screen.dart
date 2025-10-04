@@ -1,5 +1,5 @@
 // lib/screens/home_screen.dart
-// ignore_for_file: unused_field, body_might_complete_normally_catch_error
+// ignore_for_file: unused_field, body_might_complete_normally_catch_error, unused_local_variable
 
 import 'package:fixnix_app/screens/alerts_screen.dart';
 import 'package:flutter/material.dart';

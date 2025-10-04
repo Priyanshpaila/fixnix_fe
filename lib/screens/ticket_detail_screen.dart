@@ -1,4 +1,6 @@
 // lib/screens/ticket_detail_screen.dart
+// ignore_for_file: unused_local_variable, deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -195,8 +197,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
 
                       final t = snap.data!;
                       final description =
-                          t.description?.trim().isNotEmpty == true
-                          ? t.description!.trim()
+                          t.description.trim().isNotEmpty == true
+                          ? t.description.trim()
                           : 'No description provided.';
 
                       return ListView(
@@ -511,9 +513,6 @@ class _MetaGrid extends StatelessWidget {
     // Safe field access with defaults
     final created = t.createdAt;
     final updated = t.updatedAt;
-    final assignee = t.assignee?.name?.trim().isNotEmpty == true
-        ? t.assignee!.name
-        : 'Unassigned';
 
     final items = <_MetaItem>[
       _MetaItem(

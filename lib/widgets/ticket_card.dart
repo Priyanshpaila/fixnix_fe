@@ -1,4 +1,4 @@
-// ignore_for_file: unnecessary_null_comparison
+// ignore_for_file: unnecessary_null_comparison, deprecated_member_use
 
 import 'package:flutter/material.dart';
 import '../ui/tokens.dart';
@@ -19,7 +19,7 @@ class TicketCard extends StatelessWidget {
 
   String? get _assigneeName {
     // Prefer nested assignee object, fall back to any legacy flat fields if present
-    final byObj = t.assignee?.name?.trim();
+    final byObj = t.assignee?.name.trim();
     if (byObj != null && byObj.isNotEmpty) return byObj;
 
     final legacy = (t as dynamic);

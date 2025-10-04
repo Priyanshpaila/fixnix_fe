@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_local_variable, unused_element_parameter
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
