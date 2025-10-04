@@ -110,12 +110,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
           final id = (j['_id'] ?? j['id'] ?? '').toString();
           if (id.isEmpty) return null;
           final name = (j['name'] ?? '').toString();
-          final email = (j['email'] ?? '').toString();
-          return _UserOption(
-            id: id,
-            label: name.isNotEmpty ? name : email,
-            subtitle: name.isNotEmpty ? email : null,
-          );
+          // final email = (j['email'] ?? '').toString();
+          return _UserOption(id: id, label: name.isNotEmpty ? name : 'Agent');
         })
         .whereType<_UserOption>()
         .toList();
@@ -292,6 +288,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
+      ref.invalidate(ticketsListProvider);
     }
   }
 
@@ -347,283 +344,304 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
         body: RefreshIndicator.adaptive(
           onRefresh: _refreshAll,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(Fx.l),
             children: [
-              Container(
-                padding: const EdgeInsets.all(Fx.l),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: Fx.cardShadow(Colors.black),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Form(
-                  key: _formKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Title
-                      TextFormField(
-                        controller: _title,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Title',
-                          prefixIcon: Icon(Icons.title_rounded),
-                        ),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Title is required';
-                          if (s.length < 4) return 'Use at least 4 characters';
-                          return null;
-                        },
+                      _SectionHeader(
+                        icon: Icons.receipt_long_rounded,
+                        title: 'Details',
+                        subtitle:
+                            'Give the ticket a clear title and short description',
                       ),
-                      const SizedBox(height: Fx.m),
-
-                      // Description
-                      TextFormField(
-                        controller: _desc,
-                        maxLines: 5,
-                        minLines: 3,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(2000),
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
-                          alignLabelWithHint: true,
-                          prefixIcon: Icon(Icons.description_outlined),
-                        ),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Description is required';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: Fx.m),
-
-                      // Priority
-                      DropdownButtonFormField<String>(
-                        value: _priority,
-                        decoration: const InputDecoration(
-                          labelText: 'Priority',
-                          prefixIcon: Icon(Icons.flag_outlined),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'P1',
-                            child: Text('P1 – High'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'P2',
-                            child: Text('P2 – Medium'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'P3',
-                            child: Text('P3 – Normal'),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _priority = v ?? 'P3'),
-                      ),
-                      const SizedBox(height: Fx.m),
-
-                      // Queue (robust)
-                      if (_loadingQueues)
-                        const ListTile(
-                          leading: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          title: Text('Loading queues…'),
-                        )
-                      else if (_loadQueuesError != null)
-                        ListTile(
-                          leading: const Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                          ),
-                          title: Text(
-                            _loadQueuesError!,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                          trailing: TextButton.icon(
-                            onPressed: _refreshAll,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
-                          ),
-                        )
-                      else if (_queues.isEmpty)
-                        ListTile(
-                          leading: const Icon(Icons.info_outline),
-                          title: const Text('No queues available'),
-                          subtitle: Text(
-                            'Ticket will use the default routing.',
-                            style: TextStyle(color: scheme.outline),
-                          ),
-                        )
-                      else
-                        DropdownButtonFormField<String?>(
-                          value: _queueId,
-                          decoration: const InputDecoration(
-                            labelText: 'Queue',
-                            prefixIcon: Icon(Icons.inbox_outlined),
-                          ),
-                          items: [
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text('Default (no queue)'),
-                            ),
-                            ..._queues.map(
-                              (q) => DropdownMenuItem<String?>(
-                                value: q.id,
-                                child: Text(q.name),
-                              ),
-                            ),
-                          ],
-                          onChanged: (v) => setState(() => _queueId = v),
-                        ),
-
-                      const SizedBox(height: Fx.m),
-
-                      // Assignee (robust + assign-to-me)
-                      if (_loadingUsers)
-                        const ListTile(
-                          leading: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          title: Text('Loading agents…'),
-                        )
-                      else if (_loadUsersError != null)
-                        Column(
-                          children: [
-                            ListTile(
-                              leading: const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                              ),
-                              title: Text(
-                                _loadUsersError!,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                              trailing: TextButton.icon(
-                                onPressed: _refreshAll,
-                                icon: const Icon(Icons.refresh_rounded),
-                                label: const Text('Retry'),
-                              ),
-                            ),
-                            if (_myUserId != null && _myUserId!.isNotEmpty)
-                              SwitchListTile(
-                                value: _assignToMe,
-                                onChanged: (v) =>
-                                    setState(() => _assignToMe = v),
-                                title: const Text('Assign to me'),
-                                subtitle: Text(
-                                  'Agents list unavailable. Use your account as assignee.',
-                                  style: TextStyle(color: scheme.outline),
+                      const SizedBox(height: Fx.s),
+                      _SectionCard(
+                        child: Form(
+                          key: _formKey,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          child: Column(
+                            children: [
+                              // Title
+                              TextFormField(
+                                controller: _title,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: 'Title',
+                                  hintText: 'e.g. VPN not connecting on mobile',
+                                  prefixIcon: const Icon(Icons.title_rounded),
+                                  suffixIcon: (_title.text.isNotEmpty)
+                                      ? IconButton(
+                                          tooltip: 'Clear title',
+                                          icon: const Icon(Icons.close_rounded),
+                                          onPressed: () {
+                                            _title.clear();
+                                            setState(() {});
+                                          },
+                                        )
+                                      : null,
                                 ),
-                              )
-                            else
-                              ListTile(
-                                leading: const Icon(Icons.info_outline),
-                                title: const Text('Proceed without assignee'),
-                                subtitle: Text(
-                                  'You can assign later from the ticket page.',
-                                  style: TextStyle(color: scheme.outline),
-                                ),
-                              ),
-                          ],
-                        )
-                      else if (_users.isEmpty)
-                        Column(
-                          children: [
-                            const ListTile(
-                              leading: Icon(Icons.info_outline),
-                              title: Text('No agents found'),
-                            ),
-                            if (_myUserId != null && _myUserId!.isNotEmpty)
-                              SwitchListTile(
-                                value: _assignToMe,
-                                onChanged: (v) =>
-                                    setState(() => _assignToMe = v),
-                                title: const Text('Assign to me'),
-                                subtitle: Text(
-                                  'No agents available. Use your account as assignee.',
-                                  style: TextStyle(color: scheme.outline),
-                                ),
-                              )
-                            else
-                              ListTile(
-                                leading: const Icon(Icons.info_outline),
-                                title: const Text('Proceed without assignee'),
-                                subtitle: Text(
-                                  'You can assign later from the ticket page.',
-                                  style: TextStyle(color: scheme.outline),
-                                ),
-                              ),
-                          ],
-                        )
-                      else
-                        Column(
-                          children: [
-                            DropdownButtonFormField<String?>(
-                              value: _assigneeId,
-                              decoration: const InputDecoration(
-                                labelText: 'Assign to',
-                                prefixIcon: Icon(Icons.person_outline_rounded),
-                              ),
-                              items: [
-                                const DropdownMenuItem<String?>(
-                                  value: null,
-                                  child: Text('Unassigned'),
-                                ),
-                                ..._users.map(
-                                  (u) => DropdownMenuItem<String?>(
-                                    value: u.id,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          u.label,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        if (u.subtitle != null)
-                                          Text(
-                                            u.subtitle!,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (v) => setState(() => _assigneeId = v),
-                            ),
-                            if (_myUserId != null && _myUserId!.isNotEmpty)
-                              SwitchListTile(
-                                value: _assignToMe,
-                                onChanged: (v) {
-                                  setState(() {
-                                    _assignToMe = v;
-                                    if (v) _assigneeId = null;
-                                  });
+                                onChanged: (_) => setState(() {}),
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty) return 'Title is required';
+                                  if (s.length < 4)
+                                    return 'Use at least 4 characters';
+                                  return null;
                                 },
-                                title: const Text('Assign to me'),
-                                subtitle: Text(
-                                  'Override dropdown and assign to your account.',
-                                  style: TextStyle(color: scheme.outline),
+                              ),
+
+                              const SizedBox(height: Fx.m),
+
+                              // Description
+                              TextFormField(
+                                controller: _desc,
+                                maxLines: 6,
+                                minLines: 4,
+                                inputFormatters: [
+                                  LengthLimitingTextInputFormatter(2000),
+                                ],
+                                decoration: const InputDecoration(
+                                  labelText: 'Description',
+                                  hintText:
+                                      'Add steps to reproduce or screenshots (URLs)…',
+                                  alignLabelWithHint: true,
+                                  prefixIcon: Icon(Icons.description_outlined),
+                                ),
+                                buildCounter:
+                                    (
+                                      context, {
+                                      required int currentLength,
+                                      required bool isFocused,
+                                      int? maxLength,
+                                    }) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: 12,
+                                        top: 6,
+                                      ),
+                                      child: Text(
+                                        '$currentLength / ${maxLength ?? 2000}',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                onChanged: (_) => setState(() {}),
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty)
+                                    return 'Description is required';
+                                  return null;
+                                },
+                              ),
+
+                              const SizedBox(height: Fx.m),
+
+                              // Priority (chips)
+                              _LabeledRow(
+                                icon: Icons.flag_outlined,
+                                label: 'Priority',
+                                child: _PriorityChips(
+                                  value: _priority,
+                                  onChanged: (v) =>
+                                      setState(() => _priority = v),
                                 ),
                               ),
-                          ],
+                            ],
+                          ),
                         ),
+                      ),
 
                       const SizedBox(height: Fx.l),
 
+                      _SectionHeader(
+                        icon: Icons.route_rounded,
+                        title: 'Routing',
+                        subtitle: 'Optional: choose a queue',
+                      ),
+                      const SizedBox(height: Fx.s),
+                      _SectionCard(
+                        child: Column(
+                          children: [
+                            if (_loadingQueues)
+                              const _LoadingTile(text: 'Loading queues…')
+                            else if (_loadQueuesError != null)
+                              _ErrorTileInline(
+                                message: _loadQueuesError!,
+                                onRetry: _refreshAll,
+                              )
+                            else if (_queues.isEmpty)
+                              _InfoTileInline(
+                                icon: Icons.info_outline,
+                                title: 'No queues available',
+                                subtitle:
+                                    'Ticket will use the default routing.',
+                              )
+                            else
+                              DropdownButtonFormField<String?>(
+                                value: _queueId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Queue',
+                                  prefixIcon: Icon(Icons.inbox_outlined),
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('Default (no queue)'),
+                                  ),
+                                  ..._queues.map(
+                                    (q) => DropdownMenuItem<String?>(
+                                      value: q.id,
+                                      child: Text(q.name),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (v) => setState(() => _queueId = v),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: Fx.l),
+
+                      _SectionHeader(
+                        icon: Icons.person_pin_circle_rounded,
+                        title: 'Assignment',
+                        subtitle:
+                            'Pick an agent or assign to yourself. You can change later.',
+                      ),
+                      const SizedBox(height: Fx.s),
+                      _SectionCard(
+                        child: Column(
+                          children: [
+                            if (_loadingUsers)
+                              const _LoadingTile(text: 'Loading agents…')
+                            else if (_loadUsersError != null)
+                              Column(
+                                children: [
+                                  _ErrorTileInline(
+                                    message: _loadUsersError!,
+                                    onRetry: _refreshAll,
+                                  ),
+                                  if (_myUserId != null &&
+                                      _myUserId!.isNotEmpty)
+                                    SwitchListTile(
+                                      value: _assignToMe,
+                                      onChanged: (v) =>
+                                          setState(() => _assignToMe = v),
+                                      title: const Text('Assign to me'),
+                                      subtitle: Text(
+                                        'Agents list unavailable. Use your account as assignee.',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    const _InfoTileInline(
+                                      icon: Icons.info_outline,
+                                      title: 'Proceed without assignee',
+                                      subtitle:
+                                          'You can assign later from the ticket page.',
+                                    ),
+                                ],
+                              )
+                            else if (_users.isEmpty)
+                              Column(
+                                children: [
+                                  const _InfoTileInline(
+                                    icon: Icons.info_outline,
+                                    title: 'No agents found',
+                                  ),
+                                  if (_myUserId != null &&
+                                      _myUserId!.isNotEmpty)
+                                    SwitchListTile(
+                                      value: _assignToMe,
+                                      onChanged: (v) =>
+                                          setState(() => _assignToMe = v),
+                                      title: const Text('Assign to me'),
+                                      subtitle: Text(
+                                        'No agents available. Use your account as assignee.',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    const _InfoTileInline(
+                                      icon: Icons.info_outline,
+                                      title: 'Proceed without assignee',
+                                      subtitle:
+                                          'You can assign later from the ticket page.',
+                                    ),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  DropdownButtonFormField<String?>(
+                                    value: _assigneeId,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Assign to',
+                                      prefixIcon: Icon(
+                                        Icons.person_outline_rounded,
+                                      ),
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('Unassigned'),
+                                      ),
+                                      ..._users.map(
+                                        (u) => DropdownMenuItem<String?>(
+                                          value: u.id,
+                                          child: _UserOptionTile(u: u),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (v) =>
+                                        setState(() => _assigneeId = v),
+                                  ),
+                                  if (_myUserId != null &&
+                                      _myUserId!.isNotEmpty)
+                                    SwitchListTile(
+                                      value: _assignToMe,
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _assignToMe = v;
+                                          if (v) _assigneeId = null;
+                                        });
+                                      },
+                                      title: const Text('Assign to me'),
+                                      subtitle: Text(
+                                        'Override dropdown and assign to your account.',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: Fx.l),
+
+                      // Footer actions
                       Row(
                         children: [
                           Expanded(
@@ -655,21 +673,19 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                                         color: Colors.white,
                                       ),
                                     )
-                                  : const Icon(Icons.check_rounded),
+                                  : const Icon(Icons.check_circle_rounded),
                               onPressed: _submitting ? null : _create,
-                              label: Text(_submitting ? 'Creating…' : 'Create'),
+                              label: Text(
+                                _submitting ? 'Creating…' : 'Create ticket',
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: Fx.l),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: Fx.l),
-              Text(
-                'Tip: SLA picker can be added next. Queues and assignee are optional and can be changed later from the ticket page.',
-                style: TextStyle(color: scheme.outline),
               ),
             ],
           ),
@@ -690,4 +706,242 @@ class _QueueOption {
   final String id;
   final String name;
   _QueueOption({required this.id, required this.name});
+}
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: cs.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: cs.onPrimaryContainer),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: TextStyle(color: cs.outline, fontSize: 13),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final Widget child;
+  const _SectionCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(Fx.l),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: Fx.cardShadow(Colors.black),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _LabeledRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Widget child;
+  const _LabeledRow({
+    required this.icon,
+    required this.label,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: cs.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
+}
+
+class _PriorityChips extends StatelessWidget {
+  final String value; // 'P1','P2','P3'
+  final ValueChanged<String> onChanged;
+  const _PriorityChips({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget chip(String v, String label, IconData icon) {
+      final selected = value == v;
+      return ChoiceChip(
+        selected: selected,
+        onSelected: (_) => onChanged(v),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 6),
+            Text(label),
+          ],
+        ),
+        selectedColor: cs.primary,
+        labelStyle: TextStyle(
+          color: selected ? cs.onPrimary : cs.onSurface,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+        side: BorderSide(color: cs.outlineVariant),
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      children: [
+        chip('P1', 'P1 – High', Icons.priority_high_rounded),
+        chip('P2', 'P2 – Medium', Icons.outlined_flag_rounded),
+        chip('P3', 'P3 – Normal', Icons.flag_circle_outlined),
+      ],
+    );
+  }
+}
+
+class _UserOptionTile extends StatelessWidget {
+  final _UserOption u;
+  const _UserOptionTile({required this.u});
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = (u.label.isNotEmpty ? u.label.trim() : '?')
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .map((e) => e.characters.first.toUpperCase())
+        .take(2)
+        .join();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min, // ⬅️ important for dropdown menus
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 12,
+          child: Text(initials, style: const TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 8),
+
+        // Use Flexible.loose instead of Expanded/flex
+        Flexible(
+          fit: FlexFit.loose,
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // ⬅️ keep it shrink-wrapped
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                u.label,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (u.subtitle != null && u.subtitle!.isNotEmpty)
+                Text(
+                  u.subtitle!,
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoadingTile extends StatelessWidget {
+  final String text;
+  const _LoadingTile({required this.text});
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: const SizedBox(
+      width: 20,
+      height: 20,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    ),
+    title: Text(text),
+  );
+}
+
+class _ErrorTileInline extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorTileInline({required this.message, required this.onRetry});
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: const Icon(Icons.error_outline, color: Colors.red),
+    title: Text(message, style: const TextStyle(color: Colors.red)),
+    trailing: TextButton.icon(
+      onPressed: onRetry,
+      icon: const Icon(Icons.refresh_rounded),
+      label: const Text('Retry'),
+    ),
+  );
+}
+
+class _InfoTileInline extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  const _InfoTileInline({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+  });
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(icon),
+    title: Text(title),
+    subtitle: (subtitle != null) ? Text(subtitle!) : null,
+  );
 }

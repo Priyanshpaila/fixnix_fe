@@ -1,5 +1,6 @@
 // lib/screens/ticket_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,6 +23,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
 
   final _commentCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  final _descExpanded = ValueNotifier<bool>(false);
+
   bool _sending = false;
 
   @override
@@ -59,6 +62,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
         ),
       );
       _reloadAll();
+      ref.invalidate(ticketsListProvider);
     } catch (e) {
       ScaffoldMessenger.of(ctx).showSnackBar(
         SnackBar(
@@ -117,6 +121,7 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
   void dispose() {
     _commentCtrl.dispose();
     _scrollCtrl.dispose();
+    _descExpanded.dispose();
     super.dispose();
   }
 
@@ -129,8 +134,8 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              cs.primary.withOpacity(.04),
-              cs.secondary.withOpacity(.03),
+              cs.primary.withOpacity(.05),
+              cs.secondary.withOpacity(.04),
               Colors.transparent,
             ],
             begin: Alignment.topLeft,
@@ -161,22 +166,118 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (snap.hasError || !snap.hasData) {
-                        return const Center(child: Text('Ticket not found'));
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(Fx.l),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Ticket not found',
+                                  style: TextStyle(color: cs.outline),
+                                ),
+                                const SizedBox(height: 8),
+                                FilledButton.icon(
+                                  onPressed: _reloadAll,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       }
+
                       final t = snap.data!;
+                      final description =
+                          t.description?.trim().isNotEmpty == true
+                          ? t.description!.trim()
+                          : 'No description provided.';
 
                       return ListView(
                         controller: _scrollCtrl,
-                        padding: const EdgeInsets.all(Fx.l),
+                        padding: const EdgeInsets.fromLTRB(
+                          Fx.l,
+                          Fx.m,
+                          Fx.l,
+                          Fx.l,
+                        ),
                         children: [
                           _HeaderCard(t: t),
                           const SizedBox(height: Fx.l),
+
+                          // Details grid (ID, timestamps, assignee, queue, requester)
+                          _Section(
+                            title: 'Details',
+                            trailing: IconButton(
+                              tooltip: 'Copy ticket ID',
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: t.id));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Ticket ID copied'),
+                                    behavior: SnackBarBehavior.floating,
+                                    showCloseIcon: true,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy_rounded),
+                            ),
+                            child: _MetaGrid(t: t),
+                          ),
+                          const SizedBox(height: Fx.l),
+
+                          // Description (collapsible)
+                          _Section(
+                            title: 'Description',
+                            child: ValueListenableBuilder<bool>(
+                              valueListenable: _descExpanded,
+                              builder: (_, expanded, __) {
+                                final text = Text(
+                                  description,
+                                  maxLines: expanded ? null : 6,
+                                  overflow: expanded
+                                      ? TextOverflow.visible
+                                      : TextOverflow.ellipsis,
+                                );
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    text,
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          _descExpanded.value = !expanded,
+                                      icon: Icon(
+                                        expanded
+                                            ? Icons.expand_less_rounded
+                                            : Icons.expand_more_rounded,
+                                      ),
+                                      label: Text(
+                                        expanded ? 'Show less' : 'Show more',
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: Fx.l),
+
+                          // Quick actions
                           _ActionBar(
                             onWait: () => _updateStatus('waiting_customer'),
                             onProgress: () => _updateStatus('in_progress'),
                             onResolve: () => _updateStatus('resolved'),
                           ),
                           const SizedBox(height: Fx.l),
+
+                          // Comments
                           _Section(
                             title: 'Comments',
                             child: Column(
@@ -208,15 +309,33 @@ class _TicketDetailScreenState extends ConsumerState<TicketDetailScreen> {
                                         ),
                                       );
                                     }
-                                    return ListView.separated(
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      shrinkWrap: true,
-                                      itemCount: items.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 12),
-                                      itemBuilder: (_, i) =>
-                                          _CommentTile(c: items[i]),
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: Text(
+                                            '${items.length} ${items.length == 1 ? 'comment' : 'comments'}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                        ListView.separated(
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          shrinkWrap: true,
+                                          itemCount: items.length,
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(height: 12),
+                                          itemBuilder: (_, i) =>
+                                              _CommentTile(c: items[i]),
+                                        ),
+                                      ],
                                     );
                                   },
                                 ),
@@ -308,37 +427,6 @@ class _HeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // Build the meta list using fields that exist on the model:
-    // id, createdAt, updatedAt, assignee?.name
-    final style = TextStyle(color: cs.outline);
-    final meta = <Widget>[
-      _MetaRow(
-        icon: Icons.confirmation_number_outlined,
-        label: 'ID',
-        value: t.id,
-        style: style,
-      ),
-      _MetaRow(
-        icon: Icons.schedule_rounded,
-        label: 'Created',
-        value: _ago(t.createdAt),
-        style: style,
-      ),
-      _MetaRow(
-        icon: Icons.update_rounded,
-        label: 'Updated',
-        value: _ago(t.updatedAt),
-        style: style,
-      ),
-      if ((t.assignee?.name ?? '').isNotEmpty)
-        _MetaRow(
-          icon: Icons.person_outline_rounded,
-          label: 'Assignee',
-          value: t.assignee!.name,
-          style: style,
-        ),
-    ];
-
     return _GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,44 +462,13 @@ class _HeaderCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // Optional more/menu
+              const SizedBox(width: Fx.s),
             ],
-          ),
-
-          const SizedBox(height: Fx.l),
-
-          // Responsive meta grid
-          LayoutBuilder(
-            builder: (context, box) {
-              final twoCols = box.maxWidth > 520;
-              if (!twoCols) {
-                return Column(
-                  children: [
-                    for (final w in meta) ...[w, const SizedBox(height: 8)],
-                  ],
-                );
-              }
-              return Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: meta
-                    .map(
-                      (w) => SizedBox(width: (box.maxWidth - 16) / 2, child: w),
-                    )
-                    .toList(),
-              );
-            },
           ),
         ],
       ),
     );
-  }
-
-  static String _ago(DateTime dt) {
-    final d = DateTime.now().difference(dt);
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
   }
 }
 
@@ -438,6 +495,109 @@ class _NumberBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+/* ---------- Meta grid ---------- */
+
+class _MetaGrid extends StatelessWidget {
+  final Ticket t;
+  const _MetaGrid({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final subtle = TextStyle(color: cs.outline);
+
+    // Safe field access with defaults
+    final created = t.createdAt;
+    final updated = t.updatedAt;
+    final assignee = t.assignee?.name?.trim().isNotEmpty == true
+        ? t.assignee!.name
+        : 'Unassigned';
+
+    final items = <_MetaItem>[
+      _MetaItem(
+        icon: Icons.confirmation_number_outlined,
+        label: 'ID',
+        value: t.id,
+      ),
+      _MetaItem(
+        icon: Icons.flag_outlined,
+        label: 'Priority',
+        value: t.priority,
+      ),
+      _MetaItem(
+        icon: Icons.schedule_rounded,
+        label: 'Created',
+        value: _ago(created),
+      ),
+      _MetaItem(
+        icon: Icons.update_rounded,
+        label: 'Updated',
+        value: _ago(updated),
+      ),
+      _MetaItem(
+        icon: Icons.info_outline_rounded,
+        label: 'Status',
+        value: t.status,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, box) {
+        final columns = box.maxWidth >= 760 ? 3 : (box.maxWidth >= 520 ? 2 : 1);
+        final gap = 16.0;
+        final width = (box.maxWidth - (gap * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: 10,
+          children: items.map((m) {
+            return SizedBox(
+              width: width,
+              child: Row(
+                children: [
+                  Icon(m.icon, size: 18, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: subtle,
+                        children: [
+                          TextSpan(
+                            text: '${m.label}: ',
+                            style: subtle.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(text: m.value),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  static String _ago(DateTime dt) {
+    final d = DateTime.now().difference(dt);
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+}
+
+class _MetaItem {
+  final IconData icon;
+  final String label;
+  final String value;
+  _MetaItem({required this.icon, required this.label, required this.value});
 }
 
 /* ---------- Action Bar (responsive) ---------- */
@@ -590,18 +750,28 @@ class _Composer extends StatelessWidget {
 class _Section extends StatelessWidget {
   final String title;
   final Widget child;
-  const _Section({required this.title, required this.child});
+  final Widget? trailing;
+  const _Section({required this.title, required this.child, this.trailing});
 
   @override
   Widget build(BuildContext context) {
+    final header = Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+
     return _GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
+          header,
           const SizedBox(height: Fx.m),
           child,
         ],
@@ -628,37 +798,6 @@ class _GlassCard extends StatelessWidget {
         border: Border.all(color: cs.outlineVariant),
       ),
       child: child,
-    );
-  }
-}
-
-/* ---------- Meta row ---------- */
-
-class _MetaRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final TextStyle style;
-
-  const _MetaRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: cs.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Text('$label: ', style: style.copyWith(fontWeight: FontWeight.w700)),
-        Expanded(
-          child: Text(value, overflow: TextOverflow.ellipsis, style: style),
-        ),
-      ],
     );
   }
 }

@@ -866,7 +866,7 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                               )
                             : const Icon(Icons.check_rounded),
                         onPressed: _saving ? null : _submit,
-                        label: Text(_saving ? 'Updating…' : 'Update password'),
+                        label: Text(_saving ? 'Updating…' : 'Update'),
                       ),
                     ),
                   ],

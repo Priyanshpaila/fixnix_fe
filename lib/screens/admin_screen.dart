@@ -200,14 +200,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     }
   }
 
-  Future<void> _pingAll() async {
-    try {
-      await api.dio.post('/api/users/admin/ping'); // no userId => broadcast
-      _toast('Ping sent to all users');
-    } catch (e) {
-      _toast(_err(e));
-    }
-  }
+  // Future<void> _pingAll() async {
+  //   try {
+  //     await api.dio.post('/api/users/admin/ping'); // no userId => broadcast
+  //     _toast('Ping sent to all users');
+  //   } catch (e) {
+  //     _toast(_err(e));
+  //   }
+  // }
 
   void _toast(String m) {
     ScaffoldMessenger.of(context).showSnackBar(
